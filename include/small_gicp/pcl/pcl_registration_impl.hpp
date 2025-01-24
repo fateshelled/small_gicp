@@ -14,6 +14,7 @@
 #include <small_gicp/util/normal_estimation_omp.hpp>
 
 #include <small_gicp/factors/gicp_factor.hpp>
+#include <small_gicp/factors/robust_kernel.hpp>
 #include <small_gicp/registration/reduction_omp.hpp>
 #include <small_gicp/registration/registration.hpp>
 
@@ -178,6 +179,14 @@ void RegistrationPCL<PointSource, PointTarget>::setRegistrationType(const std::s
     registration_type_ = type;
   } else if (type == "VGICP") {
     registration_type_ = type;
+  } else if (type == "HUBER_GICP") {
+    registration_type_ = type;
+  } else if (type == "CAUCHY_GICP") {
+    registration_type_ = type;
+  } else if (type == "HUBER_VGICP") {
+    registration_type_ = type;
+  } else if (type == "CAUCHY_VGICP") {
+    registration_type_ = type;
   } else {
     PCL_ERROR("[RegistrationPCL::setRegistrationType] Invalid registration type: %s\n", type.c_str());
   }
@@ -214,30 +223,86 @@ void RegistrationPCL<PointSource, PointTarget>::computeTransformation(PointCloud
     estimate_covariances_omp(target_proxy, *target_tree_, k_correspondences_, num_threads_);
   }
 
-  Registration<GICPFactor, ParallelReductionOMP> registration;
-  registration.criteria.rotation_eps = rotation_epsilon_;
-  registration.criteria.translation_eps = transformation_epsilon_;
-  registration.reduction.num_threads = num_threads_;
-  registration.rejector.max_dist_sq = corr_dist_threshold_ * corr_dist_threshold_;
-  registration.optimizer.verbose = verbose_;
-  registration.optimizer.max_iterations = max_iterations_;
+  if (registration_type_.find("HUBER_") == 0) {
+    Registration<RobustFactor<Huber, GICPFactor>, ParallelReductionOMP> registration;
+    registration.criteria.rotation_eps = rotation_epsilon_;
+    registration.criteria.translation_eps = transformation_epsilon_;
+    registration.reduction.num_threads = num_threads_;
+    registration.rejector.max_dist_sq = corr_dist_threshold_ * corr_dist_threshold_;
+    registration.optimizer.verbose = verbose_;
+    registration.optimizer.max_iterations = max_iterations_;
 
-  if (registration_type_ == "GICP") {
-    result_ = registration.align(target_proxy, source_proxy, *target_tree_, Eigen::Isometry3d(guess.template cast<double>()));
-  } else if (registration_type_ == "VGICP") {
-    if (!target_voxelmap_) {
-      target_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
-      target_voxelmap_->insert(target_proxy);
+    if (registration_type_ == "HUBER_GICP"){
+      result_ = registration.align(target_proxy, source_proxy, *target_tree_, Eigen::Isometry3d(guess.template cast<double>()));
+    } else if (registration_type_ == "HUBER_VGICP"){
+      if (!target_voxelmap_) {
+        target_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
+        target_voxelmap_->insert(target_proxy);
+      }
+      if (!source_voxelmap_) {
+        source_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
+        source_voxelmap_->insert(source_proxy);
+      }
+
+      result_ = registration.align(*target_voxelmap_, source_proxy, *target_voxelmap_, Eigen::Isometry3d(guess.template cast<double>()));
+    } else {
+      PCL_ERROR("[RegistrationPCL::computeTransformation] Invalid registration type: %s\n", registration_type_.c_str());
+      return;
     }
-    if (!source_voxelmap_) {
-      source_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
-      source_voxelmap_->insert(source_proxy);
+  } else if (registration_type_.find("CAUCHY_") == 0) {
+    Registration<RobustFactor<Cauchy, GICPFactor>, ParallelReductionOMP> registration;
+    registration.criteria.rotation_eps = rotation_epsilon_;
+    registration.criteria.translation_eps = transformation_epsilon_;
+    registration.reduction.num_threads = num_threads_;
+    registration.rejector.max_dist_sq = corr_dist_threshold_ * corr_dist_threshold_;
+    registration.optimizer.verbose = verbose_;
+    registration.optimizer.max_iterations = max_iterations_;
+
+    if (registration_type_ == "CAUCHY_GICP"){
+      result_ = registration.align(target_proxy, source_proxy, *target_tree_, Eigen::Isometry3d(guess.template cast<double>()));
+    } else if (registration_type_ == "CAUCHY_VGICP"){
+      if (!target_voxelmap_) {
+        target_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
+        target_voxelmap_->insert(target_proxy);
+      }
+      if (!source_voxelmap_) {
+        source_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
+        source_voxelmap_->insert(source_proxy);
+      }
+
+      result_ = registration.align(*target_voxelmap_, source_proxy, *target_voxelmap_, Eigen::Isometry3d(guess.template cast<double>()));
+    } else {
+      PCL_ERROR("[RegistrationPCL::computeTransformation] Invalid registration type: %s\n", registration_type_.c_str());
+      return;
     }
 
-    result_ = registration.align(*target_voxelmap_, source_proxy, *target_voxelmap_, Eigen::Isometry3d(guess.template cast<double>()));
   } else {
-    PCL_ERROR("[RegistrationPCL::computeTransformation] Invalid registration type: %s\n", registration_type_.c_str());
-    return;
+
+    Registration<GICPFactor, ParallelReductionOMP> registration;
+    registration.criteria.rotation_eps = rotation_epsilon_;
+    registration.criteria.translation_eps = transformation_epsilon_;
+    registration.reduction.num_threads = num_threads_;
+    registration.rejector.max_dist_sq = corr_dist_threshold_ * corr_dist_threshold_;
+    registration.optimizer.verbose = verbose_;
+    registration.optimizer.max_iterations = max_iterations_;
+
+    if (registration_type_ == "GICP") {
+      result_ = registration.align(target_proxy, source_proxy, *target_tree_, Eigen::Isometry3d(guess.template cast<double>()));
+    } else if (registration_type_ == "VGICP") {
+      if (!target_voxelmap_) {
+        target_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
+        target_voxelmap_->insert(target_proxy);
+      }
+      if (!source_voxelmap_) {
+        source_voxelmap_ = std::make_shared<GaussianVoxelMap>(voxel_resolution_);
+        source_voxelmap_->insert(source_proxy);
+      }
+
+      result_ = registration.align(*target_voxelmap_, source_proxy, *target_voxelmap_, Eigen::Isometry3d(guess.template cast<double>()));
+    } else {
+      PCL_ERROR("[RegistrationPCL::computeTransformation] Invalid registration type: %s\n", registration_type_.c_str());
+      return;
+    }
   }
 
   converged_ = result_.converged;

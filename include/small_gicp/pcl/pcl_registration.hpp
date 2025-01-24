@@ -56,7 +56,7 @@ public:
   void setVoxelResolution(double r);
   /// @brief Set rotation epsilon for convergence check.
   void setRotationEpsilon(double eps);
-  /// @brief Set registration type ("GICP" or "VGICP").
+  /// @brief Set registration type ("GICP" or "VGICP" or "HUBER_GICP" or "CAUCHY_GICP" or "HUBER_VGICP" or "CAUCHY_VGICP").
   void setRegistrationType(const std::string& type);
   /// @brief Set the verbosity flag.
   void setVerbosity(bool verbose);
@@ -96,7 +96,7 @@ protected:
   int k_correspondences_;          ///< Number of neighbors for covariance estimation.
   double rotation_epsilon_;        ///< Rotation epsilon for convergence check.
   double voxel_resolution_;        ///< Voxel resolution for VGICP.
-  std::string registration_type_;  ///< Registration type ("GICP" or "VGICP").
+  std::string registration_type_;  ///< Registration type ("GICP" or "VGICP" or "HUBER_GICP" or "CAUCHY_GICP" or "HUBER_VGICP" or "CAUCHY_VGICP").
   bool verbose_;                   ///< Verbosity flag.
 
   std::shared_ptr<KdTree<pcl::PointCloud<PointSource>>> target_tree_;  ///< KdTree for target point cloud.
